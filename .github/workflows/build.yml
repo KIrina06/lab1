@@ -28,6 +28,10 @@ jobs:
           --health-retries 5
 
     env:
+      DB_HOST: localhost
+      POSTGRES_USER: program
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: persons
       DATABASE_URL: postgresql+psycopg2://program:test@localhost:5432/persons
 
     steps:
@@ -59,6 +63,8 @@ jobs:
               except Exception as e:
                   print("Waiting for Postgres...", e)
                   time.sleep(1)
+          else:
+              raise RuntimeError("Postgres not available")
           PY
 
       - name: Run tests
