@@ -11,6 +11,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: program
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: persons
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U program -d persons"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://program:test@localhost:5432/persons
+
     steps:
       - uses: actions/checkout@v3
 
@@ -24,10 +43,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Wait for Postgres
+        run: |
+          python - <<'PY'
+          import time, psycopg2
+          for i in range(30):
+              try:
+                  conn = psycopg2.connect(
+                      host="localhost", dbname="persons",
+                      user="program", password="test"
+                  )
+                  conn.close()
+                  print("Postgres is ready")
+                  break
+              except Exception as e:
+                  print("Waiting for Postgres...", e)
+                  time.sleep(1)
+          PY
+
       - name: Run tests
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest -v
 
-      - name: Build Docker image
-        run: docker build -t lab1:latest .
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}:${{ github.sha }}
