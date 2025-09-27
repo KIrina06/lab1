@@ -6,10 +6,8 @@ from typing import List
 from . import models, schemas, crud
 from .database import SessionLocal, engine, Base
 
-# Создаём таблицы
 Base.metadata.create_all(bind=engine)
 
-# FastAPI с префиксом для OpenAPI
 app = FastAPI(
     title="Persons API",
     version="v1",
@@ -20,7 +18,6 @@ app = FastAPI(
 
 router = APIRouter(prefix="/api/v1")
 
-# --- DB dependency ---
 def get_db():
     db = SessionLocal()
     try:
@@ -28,7 +25,6 @@ def get_db():
     finally:
         db.close()
 
-# --- Exception handlers на FastAPI (не на router!) ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = {}
@@ -43,7 +39,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"message": str(exc.detail)})
 
-# --- Endpoints ---
 @router.get("/persons/{id}", response_model=schemas.PersonResponse,
             responses={404: {"model": schemas.ErrorResponse}})
 def read_person(id: int, db: Session = Depends(get_db)):
@@ -83,5 +78,4 @@ def delete_person(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Not found Person for ID")
     return Response(status_code=204)
 
-# --- Подключаем router к приложению ---
 app.include_router(router)
